@@ -32,6 +32,23 @@ export default function QuizClient() {
 
   const [visibleQuestions, setVisibleQuestions] = useState<Question[]>([allQuestions[0]]);
 
+  const totalQuestions = useMemo(() => {
+    // Dynamically calculate total questions based on answers
+    const baseQuestions = allQuestions.filter(q => q.id !== 'painSub' && q.id !== 'quantifyPain');
+    let count = baseQuestions.length;
+    
+    const painAnswer = answers.pain?.text;
+    if (painAnswer) {
+      if (getPainSubQuestion(painAnswer)) {
+        count++;
+      }
+      if (isQuantifiablePain(painAnswer)) {
+        count++;
+      }
+    }
+    return count;
+  }, [answers.pain]);
+
   useEffect(() => {
     const newVisibleQuestions: Question[] = [];
     const painAnswer = answers.pain?.text;
@@ -73,24 +90,6 @@ export default function QuizClient() {
     setVisibleQuestions(newVisibleQuestions);
 
   }, [answers.pain]);
-
-  const totalQuestions = useMemo(() => {
-      // Base questions are all questions except the conditional ones
-      const baseQuestions = allQuestions.filter(q => q.id !== 'painSub' && q.id !== 'quantifyPain');
-      let count = baseQuestions.length;
-      
-      const painAnswer = answers.pain?.text;
-      if (painAnswer) {
-          if (getPainSubQuestion(painAnswer)) {
-              count++;
-          }
-          if (isQuantifiablePain(painAnswer)) {
-              count++;
-          }
-      }
-      return count;
-  }, [answers.pain]);
-
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newEmail = e.target.value;
@@ -198,7 +197,7 @@ export default function QuizClient() {
   const handleSubmit = async () => {
     setStep("loading");
     try {
-      const webhookUrl = new URL('https://hooks.profissionalai.com.br/webhook/6e2f0fa5-6cc5-4415-943c-7d7b9a6a7719');
+      const webhookUrl = new URL('https://flows.profissionalai.com.br/webhook-test/6e2f0fa5-6cc5-4415-943c-7d7b9a6a7719');
       
       const plainAnswers = Object.entries(answers).reduce((acc, [key, ans]) => {
         const question = allQuestions.find(q => q.id === key) || visibleQuestions.find(q => q.id === key);
@@ -242,8 +241,7 @@ export default function QuizClient() {
 
   const progressPercentage = useMemo(() => {
     if (totalQuestions === 0) return 0;
-    // This now correctly reflects progress through the visible questions
-    return ((currentQuestionIndex) / totalQuestions) * 100;
+    return (currentQuestionIndex / totalQuestions) * 100;
   }, [currentQuestionIndex, totalQuestions]);
   
   const renderContent = () => {
@@ -304,7 +302,7 @@ export default function QuizClient() {
       case "quiz":
         return (
             <>
-              <QuizProgress value={progressPercentage} current={currentQuestionIndex + 1} total={totalQuestions} />
+              <QuizProgress value={progressPercentage} />
               <QuizQuestion
                 question={currentQuestion}
                 onAnswerSelect={handleAnswerSelect}
