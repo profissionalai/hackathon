@@ -230,7 +230,7 @@ export default function QuizClient() {
         return (
           <div className="text-center p-6 md:p-10 animate-fade-in">
             <h2 className="text-3xl font-headline font-bold text-primary mb-4">Seja bem-vindo(a) ao Diagnóstico IA Hunter!</h2>
-            <p className="text-muted-foreground mb-8 max-w-xl mx-auto">Para começar, precisamos validar seu e-mail empresarial. Isso nos ajuda a oferecer recomendações mais precisas e personalizadas para o seu negócio.</p>
+            <p className="text-muted-foreground mb-8 max-w-xl mx-auto">Para começar, precisamos do seu número de telefone e-mail empresarial. Isso nos ajuda a oferecer recomendações mais precisas e personalizadas para o seu negócio.</p>
             <div className="max-w-md mx-auto space-y-4">
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
