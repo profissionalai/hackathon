@@ -4,81 +4,118 @@ import { useMemo } from "react";
 import type { GenerateOpportunitiesOutput } from "@/ai/flows/generate-opportunities";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "../ui/button";
+import { ArrowRight, BarChart, Calendar, Target } from "lucide-react";
 
 interface QuizResultsProps {
   score: number;
-  opportunities: GenerateOpportunitiesOutput["opportunities"];
+  results: GenerateOpportunitiesOutput;
 }
 
-type Tier = {
+type TierDetails = {
   name: string;
   className: string;
   gradient: string;
 };
 
-export function QuizResults({ score, opportunities }: QuizResultsProps) {
-  const tier: Tier = useMemo(() => {
-    if (score >= 80) {
-      return {
-        name: "Ouro",
-        className: "bg-yellow-400 text-yellow-900 border-yellow-500",
-        gradient: "from-yellow-400 to-amber-500",
-      };
+export function QuizResults({ score, results }: QuizResultsProps) {
+  const tierDetails: TierDetails = useMemo(() => {
+    switch (results.tier) {
+      case "Ouro":
+        return {
+          name: "Ouro",
+          className: "bg-yellow-400 text-yellow-900 border-yellow-500",
+          gradient: "from-yellow-400 to-amber-500",
+        };
+      case "Prata":
+        return {
+          name: "Prata",
+          className: "bg-slate-300 text-slate-800 border-slate-400",
+          gradient: "from-slate-300 to-slate-400",
+        };
+      case "Bronze":
+      default:
+        return {
+          name: "Bronze",
+          className: "bg-orange-400 text-orange-900 border-orange-500",
+          gradient: "from-orange-400 to-amber-600",
+        };
     }
-    if (score >= 50) {
-      return {
-        name: "Prata",
-        className: "bg-slate-300 text-slate-800 border-slate-400",
-        gradient: "from-slate-300 to-slate-400",
-      };
-    }
-    return {
-      name: "Bronze",
-      className: "bg-orange-400 text-orange-900 border-orange-500",
-      gradient: "from-orange-400 to-amber-600",
-    };
-  }, [score]);
+  }, [results.tier]);
 
   return (
     <div className="animate-fade-in">
       <div
-        className={`bg-gradient-to-br ${tier.gradient} text-white p-6 rounded-xl text-center mb-8 shadow-lg`}
+        className={`bg-gradient-to-br ${tierDetails.gradient} text-white p-6 rounded-xl text-center mb-8 shadow-lg`}
       >
-        <p className="text-lg font-semibold opacity-90">Sua Pontuação de Prontidão para IA</p>
-        <p className="text-7xl font-bold font-headline my-2">{score}</p>
+        <p className="text-lg font-semibold opacity-90">Seu Score de Prontidão para IA</p>
+        <p className="text-7xl font-bold font-headline my-2">{score.toFixed(1)}/10</p>
+        <p className="opacity-90 max-w-md mx-auto mb-4">{results.readinessStatement}</p>
         <Badge
-          className={`text-lg px-4 py-1 border-2 ${tier.className} bg-clip-text text-transparent`}
-          style={{ backgroundImage: `linear-gradient(135deg, white, white)`, WebkitBackgroundClip: 'text' }}
+          variant="outline"
+          className={`text-lg px-4 py-1 border-2 bg-white/20 backdrop-blur-sm text-white`}
         >
-          {tier.name}
+          🏆 Sua Classificação: {results.tier}
         </Badge>
       </div>
+      
+      <p className="text-center text-muted-foreground mb-6">{results.tierDescription}</p>
+
+      <Card className="mb-8 bg-secondary/30">
+        <CardContent className="p-4 text-center">
+            <p className="font-semibold text-accent">{results.benchmarkStatement}</p>
+        </CardContent>
+      </Card>
+
 
       <h2 className="text-3xl font-headline font-bold text-center mb-6 text-foreground">
-        Suas Oportunidades de IA Personalizadas
+        Suas 3 Melhores Oportunidades
       </h2>
 
       <div className="space-y-6">
-        {opportunities.map((opp, index) => (
-          <Card key={index} className="overflow-hidden border-l-4 border-primary">
+        {results.opportunities.map((opp, index) => (
+          <Card key={index} className="overflow-hidden border-l-4 border-primary bg-card/70">
             <CardHeader>
               <CardTitle className="text-xl font-headline text-primary">{opp.title}</CardTitle>
             </CardHeader>
             <CardContent>
-              <CardDescription className="mb-4 text-base text-muted-foreground">{opp.description}</CardDescription>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                 <div className="bg-secondary/50 p-4 rounded-lg">
-                    <p className="text-sm font-semibold text-muted-foreground mb-1">ROI Estimado</p>
-                    <p className="text-lg font-bold text-accent">{opp.estimatedRoi}</p>
+              <p className="mb-6 text-base text-muted-foreground">{opp.description}</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                 <div className="bg-secondary/50 p-3 rounded-lg flex items-center gap-3">
+                    <Target className="w-6 h-6 text-accent"/>
+                    <div>
+                        <p className="font-semibold text-muted-foreground">ROI Estimado</p>
+                        <p className="font-bold text-foreground">{opp.estimatedRoi}</p>
+                    </div>
                  </div>
-                 <div className="bg-secondary/50 p-4 rounded-lg">
-                    <p className="text-sm font-semibold text-muted-foreground mb-1">Próximos Passos</p>
-                    <p className="text-base text-foreground">{opp.nextSteps}</p>
+                 <div className="bg-secondary/50 p-3 rounded-lg flex items-center gap-3">
+                    <Calendar className="w-6 h-6 text-accent"/>
+                    <div>
+                        <p className="font-semibold text-muted-foreground">Tempo</p>
+                        <p className="font-bold text-foreground">{opp.implementationTime}</p>
+                    </div>
+                 </div>
+                 <div className="bg-secondary/50 p-3 rounded-lg flex items-center gap-3">
+                    <BarChart className="w-6 h-6 text-accent"/>
+                    <div>
+                        <p className="font-semibold text-muted-foreground">Investimento</p>
+                        <p className="font-bold text-foreground">{opp.investmentRange}</p>
+                    </div>
                  </div>
               </div>
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      <div className="mt-10 text-center">
+         <h3 className="text-2xl font-headline font-bold text-foreground">Seu Próximo Passo Ideal</h3>
+         <div className="mt-4">
+            <Button size="lg" className="font-bold text-lg py-7 px-8 font-headline">
+                {results.nextStepCallToAction}
+                <ArrowRight className="ml-2"/>
+            </Button>
+         </div>
       </div>
     </div>
   );

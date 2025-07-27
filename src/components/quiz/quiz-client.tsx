@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import type { GenerateOpportunitiesOutput } from "@/ai/flows/generate-opportunities";
 import { generateOpportunities } from "@/ai/flows/generate-opportunities";
-import { questions, type Question } from "@/lib/questions";
+import { allQuestions, type Question, type Answer, type Answers, isPainQuestion, getPainSubQuestion, isQuantifiablePain } from "@/lib/questions";
 import { useToast } from "@/hooks/use-toast";
 import { QuizHeader } from "./quiz-header";
 import { QuizProgress } from "./quiz-progress";
@@ -11,53 +11,153 @@ import { QuizQuestion } from "./quiz-question";
 import { QuizResults } from "./quiz-results";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "../ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, Mail, ArrowRight, CheckCircle } from "lucide-react";
+import { Input } from "../ui/input";
 
-type Answers = Record<string, number>;
+type QuizStep = "welcome" | "quiz" | "loading" | "results";
+
+const PUBLIC_DOMAINS = ["gmail.com", "hotmail.com", "yahoo.com", "outlook.com", "aol.com"];
 
 export default function QuizClient() {
-  const [currentStep, setCurrentStep] = useState(0);
+  const [step, setStep] = useState<QuizStep>("welcome");
+  const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [isEmailValid, setIsEmailValid] = useState(false);
+
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Answers>({});
-  const [isComplete, setIsComplete] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<GenerateOpportunitiesOutput | null>(null);
   const { toast } = useToast();
 
-  const currentQuestion: Question = questions[currentStep];
-  const selectedAnswerValue = answers[currentQuestion?.id];
+  const [visibleQuestions, setVisibleQuestions] = useState<Question[]>([allQuestions[0]]);
 
-  const handleAnswerSelect = (questionId: string, value: number) => {
-    setAnswers((prev) => ({ ...prev, [questionId]: value }));
+  useEffect(() => {
+    const newVisibleQuestions: Question[] = [];
+    let painSubQuestion: Question | null = null;
+    let quantifyPainQuestion: Question | null = null;
+    let painAnswer: Answer | undefined = undefined;
+
+    // Filter questions based on answers
+    for (const q of allQuestions) {
+      if (isPainQuestion(q.id)) {
+        painAnswer = answers[q.id] as Answer | undefined;
+        newVisibleQuestions.push(q);
+        if (painAnswer) {
+          painSubQuestion = getPainSubQuestion(painAnswer.text);
+          if (painSubQuestion) {
+            newVisibleQuestions.push(painSubQuestion);
+          }
+          if (isQuantifiablePain(painAnswer.text)) {
+            quantifyPainQuestion = allQuestions.find(q => q.id === "quantifyPain")!;
+            newVisibleQuestions.push(quantifyPainQuestion);
+          }
+        }
+      } else if (q.id === "painSub" || q.id === "quantifyPain") {
+        // These are added conditionally, so skip them in the main loop
+        continue;
+      }
+      else {
+        newVisibleQuestions.push(q);
+      }
+    }
+    setVisibleQuestions(newVisibleQuestions);
+  }, [answers]);
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newEmail = e.target.value;
+    setEmail(newEmail);
+    const domain = newEmail.split('@')[1];
+
+    if (newEmail.length > 5 && newEmail.includes('@')) {
+      if (PUBLIC_DOMAINS.includes(domain)) {
+        setEmailError("Use seu e-mail empresarial para recomendações mais precisas.");
+        setIsEmailValid(false);
+      } else {
+        setEmailError(null);
+        setIsEmailValid(true);
+      }
+    } else {
+      setEmailError(null);
+      setIsEmailValid(false);
+    }
+  };
+  
+  const startQuiz = () => {
+    if (isEmailValid) {
+      setStep("quiz");
+    } else if (!emailError) {
+       setEmailError("Por favor, insira um e-mail empresarial válido.");
+    }
   };
 
+  const currentQuestion = visibleQuestions[currentQuestionIndex];
+  const selectedAnswer = answers[currentQuestion?.id];
+
+  const handleAnswerSelect = (questionId: string, answer: Answer) => {
+    setAnswers((prev) => ({ ...prev, [questionId]: answer }));
+  };
+  
+  const handleTextAnswer = (questionId: string, text: string) => {
+    setAnswers((prev) => ({...prev, [questionId]: { text, value: 0, points: 0 } }));
+  }
+
   const handleNext = () => {
-    if (currentStep < questions.length - 1) {
-      setCurrentStep(currentStep + 1);
+    if (currentQuestionIndex < visibleQuestions.length - 1) {
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
     } else {
       handleSubmit();
     }
   };
 
   const score = useMemo(() => {
-    return Object.values(answers).reduce((sum, value) => sum + value, 0);
-  }, [answers]);
+    if (Object.keys(answers).length < visibleQuestions.filter(q => q.id !== 'quantifyPain').length) {
+      return 0;
+    }
+
+    const getPoints = (id: string, defaultValue = 0) => answers[id]?.points ?? defaultValue;
+    
+    const decisionLevel = getPoints('role');
+    
+    let painIntensity = getPoints('pain');
+    if (answers.quantifyPain?.text && (answers.quantifyPain.text as string).toLowerCase() !== "não consigo medir") {
+        painIntensity = 3; // Max points if quantified
+    } else if (answers.pain && answers.pain.text !== "Não temos grandes gargalos no momento") {
+        painIntensity = 2; // Specific but not quantified
+    } else if (answers.pain && answers.pain.text === "Não temos grandes gargalos no momento") {
+        painIntensity = 0;
+    } else {
+        painIntensity = 1; // Generic pain
+    }
+
+    const investment = getPoints('investment');
+    const urgency = getPoints('urgency');
+    const maturity = getPoints('maturity');
+
+    const finalScore = (decisionLevel * 0.15) + (painIntensity * 0.30) + (investment * 0.25) + (urgency * 0.15) + (maturity * 0.15);
+    
+    return Math.min(10, Math.max(0, finalScore * (10 / 3.3) )); // Normalize to 10
+  }, [answers, visibleQuestions]);
 
   const handleSubmit = async () => {
-    setIsLoading(true);
+    setStep("loading");
     try {
-      const plainAnswers = questions.reduce((acc, q) => {
-        const answerValue = answers[q.id];
-        const selectedOption = q.options.find(opt => opt.value === answerValue);
-        acc[q.title] = selectedOption ? selectedOption.text : 'Não respondido';
+      const plainAnswers = Object.entries(answers).reduce((acc, [key, ans]) => {
+        const question = allQuestions.find(q => q.id === key) || visibleQuestions.find(q => q.id === key);
+        if (question) {
+          acc[question.title] = ans.text;
+        }
         return acc;
       }, {} as Record<string, string>);
 
       const genAIResults = await generateOpportunities({
         questionnaireResponses: plainAnswers,
         aiReadinessScore: score,
+        userEmail: email,
+        sector: answers.sector?.text || "Não informado",
+        painPoint: answers.pain?.text || "Não informado",
       });
       setResults(genAIResults);
-      setIsComplete(true);
+      setStep("results");
     } catch (error) {
       console.error("Error generating opportunities:", error);
       toast({
@@ -65,46 +165,89 @@ export default function QuizClient() {
         description: "Não foi possível gerar as oportunidades. Tente novamente mais tarde.",
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
+      setStep("quiz"); // Go back to quiz on error
     }
   };
 
-  const progressPercentage = ((currentStep + 1) / questions.length) * 100;
+  const progressPercentage = ((currentQuestionIndex + 1) / visibleQuestions.length) * 100;
+  
+  const renderContent = () => {
+    switch(step) {
+      case "welcome":
+        return (
+          <div className="text-center p-6 md:p-10 animate-fade-in">
+            <h2 className="text-3xl font-headline font-bold text-primary mb-4">Seja bem-vindo(a) ao Diagnóstico IA Hunter!</h2>
+            <p className="text-muted-foreground mb-8 max-w-xl mx-auto">Para começar, precisamos validar seu e-mail empresarial. Isso nos ajuda a oferecer recomendações mais precisas e personalizadas para o seu negócio.</p>
+            <div className="max-w-md mx-auto">
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input 
+                  type="email"
+                  placeholder="seu@email-empresarial.com"
+                  value={email}
+                  onChange={handleEmailChange}
+                  className="pl-10 h-12 text-base"
+                />
+              </div>
+              {emailError && <p className="text-destructive text-sm mt-2">{emailError}</p>}
+              {isEmailValid && !emailError && <p className="text-green-500 text-sm mt-2 flex items-center justify-center"><CheckCircle className="w-4 h-4 mr-1"/> Ótimo! Vamos começar.</p>}
 
-  return (
-    <div className="max-w-4xl mx-auto">
-      <Card className="rounded-2xl shadow-2xl overflow-hidden bg-card/80 backdrop-blur-sm border-primary/20">
-        <QuizHeader />
-        <CardContent className="p-6 md:p-10">
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center min-h-[300px] text-center">
-              <Loader2 className="w-16 h-16 animate-spin text-primary mb-6" />
-              <h2 className="text-2xl font-headline font-semibold text-primary-foreground">Analisando suas respostas...</h2>
-              <p className="text-muted-foreground mt-2">Estamos gerando suas oportunidades de IA personalizadas!</p>
+              <Button
+                onClick={startQuiz}
+                disabled={!isEmailValid}
+                className="w-full text-lg py-6 font-bold font-headline mt-6"
+                size="lg"
+              >
+                Começar Diagnóstico <ArrowRight className="ml-2"/>
+              </Button>
+               <p className="text-xs text-muted-foreground mt-4">💡 Use seu e-mail corporativo para receber recomendações mais precisas!</p>
             </div>
-          ) : isComplete && results ? (
-            <QuizResults score={score} opportunities={results.opportunities} />
-          ) : (
+          </div>
+        );
+      case "loading":
+        return (
+          <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
+            <Loader2 className="w-16 h-16 animate-spin text-primary mb-6" />
+            <h2 className="text-2xl font-headline font-semibold text-primary-foreground">Analisando seu perfil...</h2>
+            <p className="text-muted-foreground mt-2">Estamos gerando suas oportunidades de IA personalizadas!</p>
+          </div>
+        );
+      case "results":
+        return results ? (
+            <QuizResults score={score} results={results} />
+          ) : null;
+      case "quiz":
+        return (
             <>
-              <QuizProgress value={progressPercentage} />
+              <QuizProgress value={progressPercentage} current={currentQuestionIndex + 1} total={visibleQuestions.length} />
               <QuizQuestion
                 question={currentQuestion}
                 onAnswerSelect={handleAnswerSelect}
-                selectedAnswerValue={selectedAnswerValue}
+                onTextAnswer={handleTextAnswer}
+                selectedAnswer={selectedAnswer}
               />
               <div className="mt-8">
                 <Button
                   onClick={handleNext}
-                  disabled={selectedAnswerValue === undefined}
+                  disabled={selectedAnswer === undefined}
                   className="w-full text-lg py-6 font-bold font-headline"
                   size="lg"
                 >
-                  {currentStep < questions.length - 1 ? "Próximo" : "Ver meu Diagnóstico"}
+                  {currentQuestionIndex < visibleQuestions.length - 1 ? "Próximo" : "Ver meu Diagnóstico"}
                 </Button>
               </div>
             </>
-          )}
+          );
+    }
+  }
+
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      <Card className="rounded-2xl shadow-2xl overflow-hidden bg-card/80 backdrop-blur-sm border-primary/20">
+        <QuizHeader isQuizStarted={step !== 'welcome'} />
+        <CardContent className="p-6 md:p-10">
+          {renderContent()}
         </CardContent>
       </Card>
     </div>
