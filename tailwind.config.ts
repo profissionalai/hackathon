@@ -17,8 +17,9 @@ export default {
     },
     extend: {
       fontFamily: {
-        body: ['PT Sans', 'sans-serif'],
-        headline: ['Poppins', 'sans-serif'],
+        sans: ['Inter', 'sans-serif'],
+        headline: ['Inter', 'sans-serif'],
+        body: ['Inter', 'sans-serif'],
         code: ['Source Code Pro', 'monospace'],
       },
       colors: {

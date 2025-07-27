@@ -10,7 +10,7 @@ const benefits = [
 
 export function QuizHeader({ isQuizStarted }: { isQuizStarted: boolean }) {
   return (
-    <header className="bg-primary/10 text-primary-foreground p-8 md:p-10 text-center transition-all duration-500">
+    <header className="bg-background/80 text-foreground p-8 md:p-10 text-center transition-all duration-500">
       <h1 className="text-4xl md:text-5xl font-bold font-headline mb-3 text-primary">🎯 Diagnóstico IA Hunter</h1>
       <div className={cn("transition-all duration-500 overflow-hidden", isQuizStarted ? "max-h-0 opacity-0 mb-0" : "max-h-96 opacity-100 mb-8")}>
         <p className="text-lg md:text-xl opacity-90 max-w-2xl mx-auto text-muted-foreground">

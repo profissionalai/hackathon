@@ -33,57 +33,68 @@ export default function QuizClient() {
   const [visibleQuestions, setVisibleQuestions] = useState<Question[]>([allQuestions[0]]);
   
   const totalQuestions = useMemo(() => {
-    let count = 0;
+    // Start with a base count of non-conditional questions
+    const baseQuestions = allQuestions.filter(q => q.id !== 'painSub' && q.id !== 'quantifyPain');
+    let count = baseQuestions.length;
+    
+    // Check if pain question has been answered
     const painAnswer = answers.pain?.text;
-    for (const q of allQuestions) {
-        if (q.id === 'painSub' || q.id === 'quantifyPain') {
-            continue;
-        }
+    if (painAnswer) {
+      if (getPainSubQuestion(painAnswer)) {
         count++;
+      }
+      if (isQuantifiablePain(painAnswer)) {
+        count++;
+      }
+    } else {
+        // If pain is not answered, we should still account for the possibility of them showing.
+        // For the purpose of a stable total, let's assume a common path.
+        // A better approach might be to calculate total based on a defined "main path"
+        // or just accept it changes. Let's assume the most common path adds the sub-question.
+        // This is tricky. Let's adjust the visibleQuestions logic and count from there.
     }
 
-    if (painAnswer) {
-        if (getPainSubQuestion(painAnswer)) {
-            count++;
-        }
-        if (isQuantifiablePain(painAnswer)) {
-            count++;
-        }
-    }
-    return count;
-  }, [answers.pain]);
+    return visibleQuestions.length;
+}, [answers, visibleQuestions]);
+
 
   useEffect(() => {
     const newVisibleQuestions: Question[] = [];
-    let painSubQuestion: Question | null = null;
-    let quantifyPainQuestion: Question | null = null;
-    let painAnswer: Answer | undefined = undefined;
+    const painAnswer = answers.pain?.text;
 
-    // Filter questions based on answers
     for (const q of allQuestions) {
-      if (isPainQuestion(q.id)) {
-        painAnswer = answers[q.id] as Answer | undefined;
-        newVisibleQuestions.push(q);
-        if (painAnswer) {
-          painSubQuestion = getPainSubQuestion(painAnswer.text);
-          if (painSubQuestion) {
-            newVisibleQuestions.push(painSubQuestion);
-          }
-          if (isQuantifiablePain(painAnswer.text)) {
-            quantifyPainQuestion = allQuestions.find(q => q.id === "quantifyPain")!;
-            newVisibleQuestions.push(quantifyPainQuestion);
-          }
+        // Skip conditional questions, they will be added if criteria are met
+        if (q.id === 'painSub' || q.id === 'quantifyPain') {
+            continue;
         }
-      } else if (q.id === "painSub" || q.id === "quantifyPain") {
-        // These are added conditionally, so skip them in the main loop
-        continue;
-      }
-      else {
         newVisibleQuestions.push(q);
-      }
     }
+    
+    // Now, conditionally add questions based on the 'pain' answer
+    if (painAnswer) {
+        const painQuestionIndex = newVisibleQuestions.findIndex(q => q.id === 'pain');
+        const questionsToAdd = [];
+
+        const painSubQuestion = getPainSubQuestion(painAnswer);
+        if (painSubQuestion) {
+            questionsToAdd.push(painSubQuestion);
+        }
+
+        if (isQuantifiablePain(painAnswer)) {
+            const quantifyPainQuestion = allQuestions.find(q => q.id === 'quantifyPain');
+            if (quantifyPainQuestion) {
+                questionsToAdd.push(quantifyPainQuestion);
+            }
+        }
+        
+        if (questionsToAdd.length > 0) {
+            newVisibleQuestions.splice(painQuestionIndex + 1, 0, ...questionsToAdd);
+        }
+    }
+    
     setVisibleQuestions(newVisibleQuestions);
-  }, [answers]);
+
+  }, [answers.pain]);
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newEmail = e.target.value;
@@ -116,7 +127,13 @@ export default function QuizClient() {
   const selectedAnswer = answers[currentQuestion?.id];
 
   const handleAnswerSelect = (questionId: string, answer: Answer) => {
-    setAnswers((prev) => ({ ...prev, [questionId]: answer }));
+    const newAnswers = { ...prev, [questionId]: answer };
+    // If the pain question is being answered, we might need to reset subsequent conditional answers
+    if (questionId === 'pain') {
+        delete newAnswers.painSub;
+        delete newAnswers.quantifyPain;
+    }
+    setAnswers(newAnswers);
   };
   
   const handleTextAnswer = (questionId: string, text: string) => {
@@ -132,8 +149,14 @@ export default function QuizClient() {
   const handleNext = () => {
     // Check if the current question has an answer before proceeding
     const currentQuestionId = visibleQuestions[currentQuestionIndex]?.id;
-    if (currentQuestionId && answers[currentQuestionId] === undefined) {
-      return; // Do not proceed if the current question is not answered
+    if (!currentQuestionId || answers[currentQuestionId] === undefined) {
+      // Do not proceed if the current question is not answered
+      // Special case for text inputs which might be empty but are considered "answered"
+      if (currentQuestion.type === 'text' && answers[currentQuestionId]?.text !== '') {
+         // allow empty text answer
+      } else if (currentQuestion.type !== 'text') {
+        return;
+      }
     }
 
     if (currentQuestionIndex < visibleQuestions.length - 1) {
@@ -154,16 +177,15 @@ export default function QuizClient() {
     
     const decisionLevel = getPoints('role');
     
-    let painIntensity = getPoints('pain');
-    // The selected option for quantifyPain gives points directly
-    if (answers.quantifyPain?.points) {
+    let painIntensity = 0;
+    if (answers.quantifyPain?.points) { // If user quantified the pain
         painIntensity = answers.quantifyPain.points;
-    } else if (answers.pain && answers.pain.text !== "Não temos grandes gargalos no momento") {
-        painIntensity = 2; // Specific but not quantified
-    } else if (answers.pain && answers.pain.text === "Não temos grandes gargalos no momento") {
+    } else if (answers.painSub) { // If user answered the sub-question (specific pain)
+        painIntensity = 2;
+    } else if (answers.pain?.text === "Não temos grandes gargalos no momento") {
         painIntensity = 0;
-    } else {
-        painIntensity = 1; // Generic pain
+    } else if (answers.pain) { // Generic pain
+        painIntensity = 1;
     }
 
     const investment = getPoints('investment');
@@ -208,10 +230,9 @@ export default function QuizClient() {
 
   const progressPercentage = useMemo(() => {
     if (totalQuestions === 0) return 0;
-    // Find the real index of the current question in the dynamic list
-    const answeredQuestionsCount = Object.keys(answers).filter(id => visibleQuestions.some(q => q.id === id)).length;
-    return (answeredQuestionsCount / totalQuestions) * 100;
-  }, [answers, totalQuestions, visibleQuestions]);
+    // This now correctly reflects progress through the visible questions
+    return ((currentQuestionIndex + 1) / totalQuestions) * 100;
+  }, [currentQuestionIndex, totalQuestions]);
   
   const renderContent = () => {
     switch(step) {
@@ -290,7 +311,7 @@ export default function QuizClient() {
                 )}
                 <Button
                   onClick={handleNext}
-                  disabled={selectedAnswer === undefined}
+                  disabled={selectedAnswer === undefined && currentQuestion?.type !== 'text'}
                   className="w-full text-lg py-6 font-bold font-headline"
                   size="lg"
                 >
@@ -306,7 +327,7 @@ export default function QuizClient() {
 
   return (
     <div className="max-w-4xl mx-auto my-8">
-      <Card className="rounded-2xl shadow-2xl overflow-hidden bg-card backdrop-blur-sm border-primary/20">
+      <Card className="rounded-2xl shadow-2xl overflow-hidden bg-card/50 backdrop-blur-sm border-primary/20">
         <QuizHeader isQuizStarted={step !== 'welcome'} />
         <CardContent className="p-6 md:p-10">
           {renderContent()}
