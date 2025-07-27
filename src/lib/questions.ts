@@ -91,9 +91,15 @@ export const allQuestions: Question[] = [
   },
   {
     id: "quantifyPain",
-    type: "text",
+    type: "multiple-choice",
     title: "Quantificação da Dor",
     conversationalTitle: "Você consegue estimar quanto esse problema está custando para empresa (em tempo ou dinheiro perdido)?",
+    options: [
+        { text: "Sim, é um custo significativo (>R$ 10k/mês)", emoji: "💸", value: 1, points: 3 },
+        { text: "Sim, é um custo moderado (<R$ 10k/mês)", emoji: "💰", value: 2, points: 2.5 },
+        { text: "Temos uma estimativa do tempo perdido", emoji: "⏳", value: 3, points: 2.5 },
+        { text: "Não consigo medir, mas o impacto é alto", emoji: "🤔", value: 4, points: 2 },
+    ]
   },
   // Block 3: Resources
   {
@@ -211,3 +217,5 @@ export function getPainSubQuestion(painAnswerText: string): Question | null {
 export function isQuantifiablePain(painAnswerText: string): boolean {
     return quantifiablePains.includes(painAnswerText);
 }
+
+    

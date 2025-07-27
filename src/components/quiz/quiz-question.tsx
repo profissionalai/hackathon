@@ -21,38 +21,48 @@ export function QuizQuestion({ question, onAnswerSelect, onTextAnswer, selectedA
       </h2>
       
       {question.type === 'multiple-choice' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
-          {question.options?.map((option) => (
-            <button
-              key={option.text}
-              onClick={() => onAnswerSelect(question.id, option)}
-              className={cn(
-                "p-5 rounded-xl border-2 text-left transition-all duration-300 flex items-center gap-4",
-                "hover:border-primary hover:bg-primary/5 hover:-translate-y-1",
-                selectedAnswer?.value === option.value
-                  ? "bg-primary border-primary text-primary-foreground"
-                  : "bg-secondary border-transparent"
-              )}
-            >
-              {option.emoji && <span className="text-2xl">{option.emoji}</span>}
-              <span className="font-medium text-base">{option.text}</span>
-            </button>
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+            {question.options?.map((option) => (
+              <button
+                key={option.text}
+                onClick={() => onAnswerSelect(question.id, option)}
+                className={cn(
+                  "p-5 rounded-xl border-2 text-left transition-all duration-300 flex items-center gap-4",
+                  "hover:border-primary hover:bg-primary/5 hover:-translate-y-1",
+                  selectedAnswer?.text === option.text
+                    ? "bg-primary border-primary text-primary-foreground"
+                    : "bg-secondary border-transparent"
+                )}
+              >
+                {option.emoji && <span className="text-2xl">{option.emoji}</span>}
+                <span className="font-medium text-base">{option.text}</span>
+              </button>
+            ))}
+          </div>
+          {question.id === "quantifyPain" && (
+            <p className="text-sm text-muted-foreground mt-4 text-center">
+              💡 Dica: Quantificar a dor, mesmo que seja uma estimativa, nos ajuda a encontrar a solução com o maior impacto financeiro para você.
+            </p>
+          )}
+        </>
       )}
 
       {question.type === 'text' && (
          <div className="mt-8">
             <Input
               placeholder="Sua resposta..."
+              value={selectedAnswer?.text || ''}
               onChange={(e) => onTextAnswer(question.id, e.target.value)}
               className="h-12 text-base"
             />
             <p className="text-sm text-muted-foreground mt-2">
-              Exemplos: "40h/mês da equipe", "Perdemos 15 leads bons por mês", "R$ 10k/mês em retrabalho", "Não consigo medir"
+              Exemplos: "40h/mês da equipe", "Perdemos 15 leads bons por mês", "R$ 10k/mês em retrabalho"
             </p>
          </div>
       )}
     </div>
   );
 }
+
+    

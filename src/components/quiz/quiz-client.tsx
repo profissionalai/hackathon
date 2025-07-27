@@ -32,6 +32,20 @@ export default function QuizClient() {
 
   const [visibleQuestions, setVisibleQuestions] = useState<Question[]>([allQuestions[0]]);
 
+  const totalQuestions = useMemo(() => {
+    const painAnswer = answers.pain?.text;
+    let count = allQuestions.filter(q => q.id !== 'painSub' && q.id !== 'quantifyPain').length;
+    if (painAnswer) {
+        if (getPainSubQuestion(painAnswer)) {
+            count++;
+        }
+        if (isQuantifiablePain(painAnswer)) {
+            count++;
+        }
+    }
+    return count;
+  }, [answers.pain]);
+
   useEffect(() => {
     const newVisibleQuestions: Question[] = [];
     let painSubQuestion: Question | null = null;
@@ -109,6 +123,12 @@ export default function QuizClient() {
   };
 
   const handleNext = () => {
+    // Check if the current question has an answer before proceeding
+    const currentQuestionId = visibleQuestions[currentQuestionIndex]?.id;
+    if (currentQuestionId && answers[currentQuestionId] === undefined) {
+      return; // Do not proceed if the current question is not answered
+    }
+
     if (currentQuestionIndex < visibleQuestions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     } else {
@@ -117,7 +137,9 @@ export default function QuizClient() {
   };
 
   const score = useMemo(() => {
-    if (Object.keys(answers).length < visibleQuestions.filter(q => q.id !== 'quantifyPain').length) {
+    // Exclude quantifyPain from required answers check
+    const requiredQuestions = visibleQuestions.filter(q => q.id !== 'quantifyPain');
+    if (Object.keys(answers).length < requiredQuestions.length) {
       return 0;
     }
 
@@ -126,8 +148,9 @@ export default function QuizClient() {
     const decisionLevel = getPoints('role');
     
     let painIntensity = getPoints('pain');
-    if (answers.quantifyPain?.text && (answers.quantifyPain.text as string).toLowerCase() !== "não consigo medir") {
-        painIntensity = 3; // Max points if quantified
+    // The selected option for quantifyPain gives points directly
+    if (answers.quantifyPain?.points) {
+        painIntensity = answers.quantifyPain.points;
     } else if (answers.pain && answers.pain.text !== "Não temos grandes gargalos no momento") {
         painIntensity = 2; // Specific but not quantified
     } else if (answers.pain && answers.pain.text === "Não temos grandes gargalos no momento") {
@@ -176,7 +199,12 @@ export default function QuizClient() {
     }
   };
 
-  const progressPercentage = ((currentQuestionIndex + 1) / visibleQuestions.length) * 100;
+  const progressPercentage = useMemo(() => {
+    if (totalQuestions === 0) return 0;
+    // Find the real index of the current question in the dynamic list
+    const answeredQuestionsCount = Object.keys(answers).filter(id => visibleQuestions.some(q => q.id === id)).length;
+    return (answeredQuestionsCount / totalQuestions) * 100;
+  }, [answers, totalQuestions, visibleQuestions]);
   
   const renderContent = () => {
     switch(step) {
@@ -236,7 +264,7 @@ export default function QuizClient() {
       case "quiz":
         return (
             <>
-              <QuizProgress value={progressPercentage} current={currentQuestionIndex + 1} total={visibleQuestions.length} />
+              <QuizProgress value={progressPercentage} current={currentQuestionIndex + 1} total={totalQuestions} />
               <QuizQuestion
                 question={currentQuestion}
                 onAnswerSelect={handleAnswerSelect}
@@ -271,7 +299,7 @@ export default function QuizClient() {
 
   return (
     <div className="max-w-4xl mx-auto my-8">
-      <Card className="rounded-2xl shadow-2xl overflow-hidden bg-card/80 backdrop-blur-sm border-primary/20">
+      <Card className="rounded-2xl shadow-2xl overflow-hidden bg-card backdrop-blur-sm border-primary/20">
         <QuizHeader isQuizStarted={step !== 'welcome'} />
         <CardContent className="p-6 md:p-10">
           {renderContent()}
@@ -280,3 +308,5 @@ export default function QuizClient() {
     </div>
   );
 }
+
+    
