@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import type { GenerateOpportunitiesOutput } from "@/ai/flows/generate-opportunities";
 import { generateOpportunities } from "@/ai/flows/generate-opportunities";
-import { allQuestions, type Question, type Answer, type Answers, isPainQuestion, getPainSubQuestion, isQuantifiablePain } from "@/lib/questions";
+import { allQuestions, type Question, type Answer, type Answers, getPainSubQuestion, isQuantifiablePain } from "@/lib/questions";
 import { useToast } from "@/hooks/use-toast";
 import { QuizHeader } from "./quiz-header";
 import { QuizProgress } from "./quiz-progress";
@@ -31,49 +31,66 @@ export default function QuizClient() {
   const { toast } = useToast();
 
   const [visibleQuestions, setVisibleQuestions] = useState<Question[]>([allQuestions[0]]);
-  
-  const totalQuestions = useMemo(() => {
-    return visibleQuestions.length;
-}, [visibleQuestions]);
-
 
   useEffect(() => {
     const newVisibleQuestions: Question[] = [];
     const painAnswer = answers.pain?.text;
 
-    for (const q of allQuestions) {
-        // Skip conditional questions, they will be added if criteria are met
-        if (q.id === 'painSub' || q.id === 'quantifyPain') {
-            continue;
-        }
+    // Start with all non-conditional questions
+    allQuestions.forEach(q => {
+      if (q.id !== 'painSub' && q.id !== 'quantifyPain') {
         newVisibleQuestions.push(q);
-    }
-    
-    // Now, conditionally add questions based on the 'pain' answer
+      }
+    });
+
     if (painAnswer) {
         const painQuestionIndex = newVisibleQuestions.findIndex(q => q.id === 'pain');
-        const questionsToAdd = [];
-
-        const painSubQuestion = getPainSubQuestion(painAnswer);
-        if (painSubQuestion) {
-            questionsToAdd.push(painSubQuestion);
-        }
-
-        if (isQuantifiablePain(painAnswer)) {
-            const quantifyPainQuestion = allQuestions.find(q => q.id === 'quantifyPain');
-            if (quantifyPainQuestion) {
-                questionsToAdd.push(quantifyPainQuestion);
-            }
-        }
         
-        if (questionsToAdd.length > 0) {
-            newVisibleQuestions.splice(painQuestionIndex + 1, 0, ...questionsToAdd);
+        if (painQuestionIndex !== -1) {
+            const questionsToAdd: Question[] = [];
+
+            // Check and add pain sub-question
+            const painSubQuestion = getPainSubQuestion(painAnswer);
+            if (painSubQuestion) {
+                questionsToAdd.push(painSubQuestion);
+            }
+
+            // Check and add quantify pain question
+            if (isQuantifiablePain(painAnswer)) {
+                const quantifyPainQuestion = allQuestions.find(q => q.id === 'quantifyPain');
+                if (quantifyPainQuestion) {
+                    questionsToAdd.push(quantifyPainQuestion);
+                }
+            }
+
+            // Insert new questions after the pain question
+            if (questionsToAdd.length > 0) {
+                newVisibleQuestions.splice(painQuestionIndex + 1, 0, ...questionsToAdd);
+            }
         }
     }
     
     setVisibleQuestions(newVisibleQuestions);
 
   }, [answers.pain]);
+
+  const totalQuestions = useMemo(() => {
+      // Base questions are all questions except the conditional ones
+      const baseQuestions = allQuestions.filter(q => q.id !== 'painSub' && q.id !== 'quantifyPain');
+      let count = baseQuestions.length;
+      
+      const painAnswer = answers.pain?.text;
+      if (painAnswer) {
+          if (getPainSubQuestion(painAnswer)) {
+              count++;
+          }
+          if (isQuantifiablePain(painAnswer)) {
+              count++;
+          }
+      }
+      return count;
+  }, [answers.pain]);
+
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newEmail = e.target.value;
@@ -226,7 +243,7 @@ export default function QuizClient() {
   const progressPercentage = useMemo(() => {
     if (totalQuestions === 0) return 0;
     // This now correctly reflects progress through the visible questions
-    return ((currentQuestionIndex + 1) / totalQuestions) * 100;
+    return ((currentQuestionIndex) / totalQuestions) * 100;
   }, [currentQuestionIndex, totalQuestions]);
   
   const renderContent = () => {
@@ -331,5 +348,3 @@ export default function QuizClient() {
     </div>
   );
 }
-
-    
