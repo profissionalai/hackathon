@@ -13,7 +13,7 @@ export function QuizHeader({ isQuizStarted }: { isQuizStarted: boolean }) {
   return (
     <header className="bg-background/80 text-foreground p-8 md:p-10 text-center transition-all duration-500">
       <div className="flex justify-center mb-3">
-        <Image src="https://placehold.co/400x100.png" alt="IA Hunter Logo" width={400} height={100} data-ai-hint="logo" />
+        <Image src="https://academialendaria.ai/wp-content/uploads/2024/05/T-AcademiaLendaria.svg" alt="IA Hunter Logo" width={400} height={100} data-ai-hint="logo" />
       </div>
       <div className={cn("transition-all duration-500 overflow-hidden", isQuizStarted ? "max-h-0 opacity-0 mb-0" : "max-h-96 opacity-100 mb-8")}>
         <p className="text-lg md:text-xl opacity-90 max-w-2xl mx-auto text-muted-foreground">

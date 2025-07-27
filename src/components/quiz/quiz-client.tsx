@@ -127,13 +127,15 @@ export default function QuizClient() {
   const selectedAnswer = answers[currentQuestion?.id];
 
   const handleAnswerSelect = (questionId: string, answer: Answer) => {
-    const newAnswers = { ...prev, [questionId]: answer };
-    // If the pain question is being answered, we might need to reset subsequent conditional answers
-    if (questionId === 'pain') {
-        delete newAnswers.painSub;
-        delete newAnswers.quantifyPain;
-    }
-    setAnswers(newAnswers);
+    setAnswers((prev) => {
+      const newAnswers = { ...prev, [questionId]: answer };
+      // If the pain question is being answered, we might need to reset subsequent conditional answers
+      if (questionId === 'pain') {
+          delete newAnswers.painSub;
+          delete newAnswers.quantifyPain;
+      }
+      return newAnswers;
+    });
   };
   
   const handleTextAnswer = (questionId: string, text: string) => {
@@ -336,3 +338,5 @@ export default function QuizClient() {
     </div>
   );
 }
+
+    
