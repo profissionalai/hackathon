@@ -3,17 +3,17 @@ import { cn } from '@/lib/utils';
 
 const benefits = [
   { icon: CheckCircle, text: 'Score de Prontidão para IA' },
-  { icon: Lightbulb, text: '3 Oportunidades Personalizadas' },
+  { icon: Lightbulb, text: 'Oportunidades Personalizadas' },
   { icon: BarChart, text: 'ROI Estimado por Aplicação' },
   { icon: Rocket, text: 'Próximo Passo Recomendado' },
 ];
 
 export function QuizHeader({ isQuizStarted }: { isQuizStarted: boolean }) {
   return (
-    <header className="bg-gradient-to-br from-primary to-[#21CBF3] text-primary-foreground p-8 md:p-10 text-center transition-all duration-500">
-      <h1 className="text-4xl md:text-5xl font-bold font-headline mb-3">🎯 Diagnóstico IA Hunter</h1>
+    <header className="bg-primary/10 text-primary-foreground p-8 md:p-10 text-center transition-all duration-500">
+      <h1 className="text-4xl md:text-5xl font-bold font-headline mb-3 text-primary">🎯 Diagnóstico IA Hunter</h1>
       <div className={cn("transition-all duration-500 overflow-hidden", isQuizStarted ? "max-h-0 opacity-0 mb-0" : "max-h-96 opacity-100 mb-8")}>
-        <p className="text-lg md:text-xl opacity-90 max-w-2xl mx-auto">
+        <p className="text-lg md:text-xl opacity-90 max-w-2xl mx-auto text-muted-foreground">
           Descubra em 3 minutos as melhores oportunidades de IA para seu negócio!
         </p>
       </div>
@@ -22,10 +22,10 @@ export function QuizHeader({ isQuizStarted }: { isQuizStarted: boolean }) {
           {benefits.map((benefit, index) => (
             <div
               key={index}
-              className="bg-white/10 backdrop-blur-sm rounded-lg p-4 flex flex-col items-center justify-center text-sm font-medium"
+              className="bg-secondary/50 backdrop-blur-sm rounded-lg p-4 flex flex-col items-center justify-center text-sm font-medium"
             >
-              <benefit.icon className="w-8 h-8 mb-2" />
-              <span>{benefit.text}</span>
+              <benefit.icon className="w-8 h-8 mb-2 text-primary" />
+              <span className="text-foreground">{benefit.text}</span>
             </div>
           ))}
         </div>

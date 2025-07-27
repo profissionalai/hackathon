@@ -11,7 +11,7 @@ import { QuizQuestion } from "./quiz-question";
 import { QuizResults } from "./quiz-results";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "../ui/button";
-import { Loader2, Mail, ArrowRight, CheckCircle } from "lucide-react";
+import { Loader2, Mail, ArrowRight, CheckCircle, Phone, ArrowLeft } from "lucide-react";
 import { Input } from "../ui/input";
 
 type QuizStep = "welcome" | "quiz" | "loading" | "results";
@@ -20,6 +20,7 @@ const PUBLIC_DOMAINS = ["gmail.com", "hotmail.com", "yahoo.com", "outlook.com", 
 
 export default function QuizClient() {
   const [step, setStep] = useState<QuizStep>("welcome");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState<string | null>(null);
   const [isEmailValid, setIsEmailValid] = useState(false);
@@ -100,6 +101,12 @@ export default function QuizClient() {
   const handleTextAnswer = (questionId: string, text: string) => {
     setAnswers((prev) => ({...prev, [questionId]: { text, value: 0, points: 0 } }));
   }
+  
+  const handleBack = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(currentQuestionIndex - 1);
+    }
+  };
 
   const handleNext = () => {
     if (currentQuestionIndex < visibleQuestions.length - 1) {
@@ -178,7 +185,17 @@ export default function QuizClient() {
           <div className="text-center p-6 md:p-10 animate-fade-in">
             <h2 className="text-3xl font-headline font-bold text-primary mb-4">Seja bem-vindo(a) ao Diagnóstico IA Hunter!</h2>
             <p className="text-muted-foreground mb-8 max-w-xl mx-auto">Para começar, precisamos validar seu e-mail empresarial. Isso nos ajuda a oferecer recomendações mais precisas e personalizadas para o seu negócio.</p>
-            <div className="max-w-md mx-auto">
+            <div className="max-w-md mx-auto space-y-4">
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input 
+                  type="tel"
+                  placeholder="Seu telefone com DDD"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="pl-10 h-12 text-base"
+                />
+              </div>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input 
@@ -226,7 +243,16 @@ export default function QuizClient() {
                 onTextAnswer={handleTextAnswer}
                 selectedAnswer={selectedAnswer}
               />
-              <div className="mt-8">
+              <div className="mt-8 flex items-center gap-4">
+                {currentQuestionIndex > 0 && (
+                   <Button
+                    onClick={handleBack}
+                    variant="outline"
+                    className="text-lg py-6 font-bold font-headline"
+                  >
+                    <ArrowLeft className="mr-2"/> Voltar
+                  </Button>
+                )}
                 <Button
                   onClick={handleNext}
                   disabled={selectedAnswer === undefined}
@@ -234,6 +260,7 @@ export default function QuizClient() {
                   size="lg"
                 >
                   {currentQuestionIndex < visibleQuestions.length - 1 ? "Próximo" : "Ver meu Diagnóstico"}
+                   {currentQuestionIndex < visibleQuestions.length - 1 && <ArrowRight className="ml-2"/>}
                 </Button>
               </div>
             </>
@@ -243,7 +270,7 @@ export default function QuizClient() {
 
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto my-8">
       <Card className="rounded-2xl shadow-2xl overflow-hidden bg-card/80 backdrop-blur-sm border-primary/20">
         <QuizHeader isQuizStarted={step !== 'welcome'} />
         <CardContent className="p-6 md:p-10">
