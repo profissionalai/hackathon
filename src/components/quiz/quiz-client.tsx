@@ -33,29 +33,8 @@ export default function QuizClient() {
   const [visibleQuestions, setVisibleQuestions] = useState<Question[]>([allQuestions[0]]);
   
   const totalQuestions = useMemo(() => {
-    // Start with a base count of non-conditional questions
-    const baseQuestions = allQuestions.filter(q => q.id !== 'painSub' && q.id !== 'quantifyPain');
-    let count = baseQuestions.length;
-    
-    // Check if pain question has been answered
-    const painAnswer = answers.pain?.text;
-    if (painAnswer) {
-      if (getPainSubQuestion(painAnswer)) {
-        count++;
-      }
-      if (isQuantifiablePain(painAnswer)) {
-        count++;
-      }
-    } else {
-        // If pain is not answered, we should still account for the possibility of them showing.
-        // For the purpose of a stable total, let's assume a common path.
-        // A better approach might be to calculate total based on a defined "main path"
-        // or just accept it changes. Let's assume the most common path adds the sub-question.
-        // This is tricky. Let's adjust the visibleQuestions logic and count from there.
-    }
-
     return visibleQuestions.length;
-}, [answers, visibleQuestions]);
+}, [visibleQuestions]);
 
 
   useEffect(() => {
@@ -202,13 +181,27 @@ export default function QuizClient() {
   const handleSubmit = async () => {
     setStep("loading");
     try {
+      const webhookUrl = new URL('https://hooks.profissionalai.com.br/webhook/6e2f0fa5-6cc5-4415-943c-7d7b9a6a7719');
+      
       const plainAnswers = Object.entries(answers).reduce((acc, [key, ans]) => {
         const question = allQuestions.find(q => q.id === key) || visibleQuestions.find(q => q.id === key);
         if (question) {
-          acc[question.title] = ans.text;
+          acc[question.id] = ans.text;
         }
         return acc;
       }, {} as Record<string, string>);
+
+      // Add email and phone to the parameters
+      const allData = { ...plainAnswers, email, phone, score: score.toFixed(1) };
+
+      for (const key in allData) {
+        webhookUrl.searchParams.append(key, allData[key as keyof typeof allData]);
+      }
+
+      // Send the data to the webhook
+      fetch(webhookUrl.toString(), { method: 'GET' }).catch(error => 
+        console.error("Webhook call failed:", error)
+      );
 
       const genAIResults = await generateOpportunities({
         questionnaireResponses: plainAnswers,
