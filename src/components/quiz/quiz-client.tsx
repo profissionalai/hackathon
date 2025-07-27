@@ -31,10 +31,17 @@ export default function QuizClient() {
   const { toast } = useToast();
 
   const [visibleQuestions, setVisibleQuestions] = useState<Question[]>([allQuestions[0]]);
-
+  
   const totalQuestions = useMemo(() => {
+    let count = 0;
     const painAnswer = answers.pain?.text;
-    let count = allQuestions.filter(q => q.id !== 'painSub' && q.id !== 'quantifyPain').length;
+    for (const q of allQuestions) {
+        if (q.id === 'painSub' || q.id === 'quantifyPain') {
+            continue;
+        }
+        count++;
+    }
+
     if (painAnswer) {
         if (getPainSubQuestion(painAnswer)) {
             count++;
@@ -308,5 +315,3 @@ export default function QuizClient() {
     </div>
   );
 }
-
-    
