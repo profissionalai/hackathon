@@ -30,7 +30,7 @@ export default function QuizClient() {
   const [results, setResults] = useState<GenerateOpportunitiesOutput | null>(null);
   const { toast } = useToast();
 
-  const [visibleQuestions, setVisibleQuestions] = useState<Question[]>([allQuestions[0]]);
+  const [visibleQuestions, setVisibleQuestions] = useState<Question[]>(() => allQuestions.filter(q => q.id !== 'painSub' && q.id !== 'quantifyPain'));
   
   // This state will hold the total number of questions for the progress bar
   // and will only be updated on navigation.
@@ -38,8 +38,10 @@ export default function QuizClient() {
 
 
   useEffect(() => {
-    const newVisibleQuestions: Question[] = [];
     const painAnswer = answers.pain?.text;
+    if (!painAnswer) return;
+
+    const newVisibleQuestions: Question[] = [];
 
     // Start with all non-conditional questions
     allQuestions.forEach(q => {
@@ -47,31 +49,29 @@ export default function QuizClient() {
         newVisibleQuestions.push(q);
       }
     });
+    
+    const painQuestionIndex = newVisibleQuestions.findIndex(q => q.id === 'pain');
+    
+    if (painQuestionIndex !== -1) {
+        const questionsToAdd: Question[] = [];
 
-    if (painAnswer) {
-        const painQuestionIndex = newVisibleQuestions.findIndex(q => q.id === 'pain');
-        
-        if (painQuestionIndex !== -1) {
-            const questionsToAdd: Question[] = [];
+        // Check and add pain sub-question
+        const painSubQuestion = getPainSubQuestion(painAnswer);
+        if (painSubQuestion) {
+            questionsToAdd.push(painSubQuestion);
+        }
 
-            // Check and add pain sub-question
-            const painSubQuestion = getPainSubQuestion(painAnswer);
-            if (painSubQuestion) {
-                questionsToAdd.push(painSubQuestion);
+        // Check and add quantify pain question
+        if (isQuantifiablePain(painAnswer)) {
+            const quantifyPainQuestion = allQuestions.find(q => q.id === 'quantifyPain');
+            if (quantifyPainQuestion) {
+                questionsToAdd.push(quantifyPainQuestion);
             }
+        }
 
-            // Check and add quantify pain question
-            if (isQuantifiablePain(painAnswer)) {
-                const quantifyPainQuestion = allQuestions.find(q => q.id === 'quantifyPain');
-                if (quantifyPainQuestion) {
-                    questionsToAdd.push(quantifyPainQuestion);
-                }
-            }
-
-            // Insert new questions after the pain question
-            if (questionsToAdd.length > 0) {
-                newVisibleQuestions.splice(painQuestionIndex + 1, 0, ...questionsToAdd);
-            }
+        // Insert new questions after the pain question
+        if (questionsToAdd.length > 0) {
+            newVisibleQuestions.splice(painQuestionIndex + 1, 0, ...questionsToAdd);
         }
     }
     
@@ -190,8 +190,6 @@ export default function QuizClient() {
   const handleSubmit = async () => {
     setStep("loading");
     try {
-      const webhookUrl = new URL('https://hooks.profissionalai.com.br/webhook/6e2f0fa5-6cc5-4415-943c-7d7b9a6a7719');
-      
       const plainAnswers = Object.entries(answers).reduce((acc, [key, ans]) => {
         const question = allQuestions.find(q => q.id === key) || visibleQuestions.find(q => q.id === key);
         if (question) {
@@ -200,20 +198,8 @@ export default function QuizClient() {
         return acc;
       }, {} as Record<string, string>);
 
-      // Add email and phone to the parameters
-      const allData = { ...plainAnswers, email, phone, score: score.toFixed(1) };
-
-      for (const key in allData) {
-        webhookUrl.searchParams.append(key, allData[key as keyof typeof allData]);
-      }
-
-      // Send the data to the webhook
-      fetch(webhookUrl.toString(), { method: 'GET' }).catch(error => 
-        console.error("Webhook call failed:", error)
-      );
-
       const genAIResults = await generateOpportunities({
-        questionnaireResponses: plainAnswers,
+        questionnaireResponses: { ...plainAnswers, phone },
         aiReadinessScore: score,
         userEmail: email,
         sector: answers.sector?.text || "Não informado",

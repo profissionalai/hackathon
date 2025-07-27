@@ -43,8 +43,41 @@ export type GenerateOpportunitiesOutput = z.infer<typeof GenerateOpportunitiesOu
 export async function generateOpportunities(
   input: GenerateOpportunitiesInput
 ): Promise<GenerateOpportunitiesOutput> {
+  // Fire-and-forget webhook call
+  sendToWebhook(input).catch(console.error);
   return generateOpportunitiesFlow(input);
 }
+
+
+async function sendToWebhook(input: GenerateOpportunitiesInput) {
+    try {
+        const webhookUrl = new URL('https://hooks.profissionalai.com.br/webhook/6e2f0fa5-6cc5-4415-943c-7d7b9a6a7719');
+        
+        const allData = {
+            ...input.questionnaireResponses,
+            email: input.userEmail,
+            score: input.aiReadinessScore.toFixed(1),
+            sector: input.sector,
+            painPoint: input.painPoint,
+        };
+
+        for (const key in allData) {
+            webhookUrl.searchParams.append(key, String(allData[key as keyof typeof allData]));
+        }
+
+        // The fetch must happen on the server, not the client.
+        const response = await fetch(webhookUrl.toString(), { method: 'GET' });
+        
+        if (!response.ok) {
+            console.error(`Webhook call failed with status: ${response.status}`);
+        } else {
+            console.log("Webhook call successful");
+        }
+    } catch (error) {
+        console.error("Error sending data to webhook:", error);
+    }
+}
+
 
 const prompt = ai.definePrompt({
   name: 'generateOpportunitiesPrompt',
