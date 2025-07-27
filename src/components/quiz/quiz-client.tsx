@@ -31,23 +31,11 @@ export default function QuizClient() {
   const { toast } = useToast();
 
   const [visibleQuestions, setVisibleQuestions] = useState<Question[]>([allQuestions[0]]);
+  
+  // This state will hold the total number of questions for the progress bar
+  // and will only be updated on navigation.
+  const [progressTotalQuestions, setProgressTotalQuestions] = useState(allQuestions.filter(q => q.id !== 'painSub' && q.id !== 'quantifyPain').length);
 
-  const totalQuestions = useMemo(() => {
-    // Dynamically calculate total questions based on answers
-    const baseQuestions = allQuestions.filter(q => q.id !== 'painSub' && q.id !== 'quantifyPain');
-    let count = baseQuestions.length;
-    
-    const painAnswer = answers.pain?.text;
-    if (painAnswer) {
-      if (getPainSubQuestion(painAnswer)) {
-        count++;
-      }
-      if (isQuantifiablePain(painAnswer)) {
-        count++;
-      }
-    }
-    return count;
-  }, [answers.pain]);
 
   useEffect(() => {
     const newVisibleQuestions: Question[] = [];
@@ -112,6 +100,7 @@ export default function QuizClient() {
   
   const startQuiz = () => {
     if (isEmailValid) {
+      setProgressTotalQuestions(visibleQuestions.length);
       setStep("quiz");
     } else if (!emailError) {
        setEmailError("Por favor, insira um e-mail empresarial válido.");
@@ -139,6 +128,7 @@ export default function QuizClient() {
   
   const handleBack = () => {
     if (currentQuestionIndex > 0) {
+      setProgressTotalQuestions(visibleQuestions.length);
       setCurrentQuestionIndex(currentQuestionIndex - 1);
     }
   };
@@ -155,6 +145,9 @@ export default function QuizClient() {
         return;
       }
     }
+    
+    // Update the total question count for the progress bar *before* navigating
+    setProgressTotalQuestions(visibleQuestions.length);
 
     if (currentQuestionIndex < visibleQuestions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
@@ -197,7 +190,7 @@ export default function QuizClient() {
   const handleSubmit = async () => {
     setStep("loading");
     try {
-      const webhookUrl = new URL('https://flows.profissionalai.com.br/webhook-test/6e2f0fa5-6cc5-4415-943c-7d7b9a6a7719');
+      const webhookUrl = new URL('https://hooks.profissionalai.com.br/webhook/6e2f0fa5-6cc5-4415-943c-7d7b9a6a7719');
       
       const plainAnswers = Object.entries(answers).reduce((acc, [key, ans]) => {
         const question = allQuestions.find(q => q.id === key) || visibleQuestions.find(q => q.id === key);
@@ -240,9 +233,10 @@ export default function QuizClient() {
   };
 
   const progressPercentage = useMemo(() => {
-    if (totalQuestions === 0) return 0;
-    return (currentQuestionIndex / totalQuestions) * 100;
-  }, [currentQuestionIndex, totalQuestions]);
+    if (progressTotalQuestions === 0) return 0;
+    // Use the stable total question count for progress calculation
+    return (currentQuestionIndex / progressTotalQuestions) * 100;
+  }, [currentQuestionIndex, progressTotalQuestions]);
   
   const renderContent = () => {
     switch(step) {
